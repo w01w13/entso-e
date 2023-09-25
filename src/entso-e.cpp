@@ -83,7 +83,19 @@ void http_get(const char* token, struct tm* startTime)
     Serial.printf("HTTPS:Constructed Request:\n------------------------\n\n%s------------------------\n", endpoint);
     httpsClient.printf("%s", endpoint);
 }
-
+void rotateCachedPrices(bool shouldUpdate)
+{
+    // Only rotate cached prices if necessary (every hour in case the refresh fails)
+    if (shouldUpdate) {
+        int positionsToShift = (sizeof(prices) / sizeof(double)) - 1;
+        // Rotate the prices by one to left
+        for (int i = 0; i < positionsToShift; i++) {
+            prices[i] = prices[i + 1];
+        }
+        // Fill the last value as zero. Eventually all values will be zero if the connection is broken
+        prices[positionsToShift] = 0.0;
+    }
+}
 int read_response(struct tm* startTime)
 {
     // Check the current hour we need to retrieve
@@ -142,10 +154,12 @@ int get_data(const char* token)
 
 int entso_e_refresh(const char* token, double* priceData)
 {
-    if (!updated || difftime(time(0), updated) >= 3600.0 || updateStatus != 0) {
+    bool shouldUpdate = difftime(time(0), updated) >= 3600.0;
+    if (!updated || shouldUpdate || updateStatus != 0) {
         struct tm* now = get_time();
         now->tm_min = 0;
         now->tm_sec = 0;
+        rotateCachedPrices(shouldUpdate);
         updated = mktime(now);
         updateStatus = get_data(token);
     } else {

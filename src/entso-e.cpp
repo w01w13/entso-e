@@ -48,23 +48,17 @@ void get_position(struct tm* startTime, char* str)
 int connect()
 {
     Serial.printf("HTTPS: Connecting to API at %s\n", API_HOST);
-    httpsClient.setTimeout(15000);
+    httpsClient.setTimeout(5000);
     httpsClient.setBufferSizes(1000, 1000);
     httpsClient.setInsecure();
     delay(1000);
     Serial.printf("HTTPS: Connecting");
-    int r = 0; // retry counter
-    while ((!httpsClient.connect(API_HOST, 443)) && (r < 30)) {
-        delay(500);
-        Serial.printf(".");
-        r++;
-    }
-    Serial.printf("\n");
-    if (r == 30) {
-        Serial.printf("HTTPS: Connection failed\n");
+    int httpsStatus = httpsClient.connect(API_HOST, 443);
+    if (httpsStatus != 1 && !httpsClient.connected()) {
+        Serial.printf("HTTPS: Connection failed: %d\n", httpsStatus);
         return 599;
     } else {
-        Serial.printf("HTTPS: Connected %d\n", r);
+        Serial.printf("HTTPS: Connected\n");
         return 0;
     }
 }
@@ -104,6 +98,7 @@ int read_response(struct tm* startTime)
     int index = 0;
     int status = 404;
     String line;
+    String code = "";
     while (httpsClient.connected() || httpsClient.available()) {
         line = httpsClient.readStringUntil('\n');
         line.trim();
@@ -114,6 +109,15 @@ int read_response(struct tm* startTime)
             prices[index++] = price.toDouble();
         } else if (line.startsWith(position)) {
             status = 0;
+        } else if (line.startsWith("<code>")) {
+            code = line.substring(line.indexOf(">") + 1, line.lastIndexOf('<'));
+        } else if (line.startsWith("<text>") && code != "") {
+            String text = line.substring(line.indexOf(">") + 1, line.lastIndexOf('<'));
+            Serial.print("Got error code\u0020");
+            Serial.print(code);
+            Serial.print(":\u0020");
+            Serial.print(text);
+            Serial.println("\n");
         }
     }
     return status;

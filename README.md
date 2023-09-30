@@ -8,14 +8,17 @@ Simple ESP8266 lib to read electricity prices from entso-e with ESP8266. This is
 ```code
 #include "entso-e.h"
 #define NUM_REGS 49
-double priceData[NUM_REGS];
+double* priceData;
+int* priceLen;
 String token = "YOUR_TOKEN_FROM_ENTSO";
 boolean read = false;
 void loop()
 {
     if (!read) {
         int status;
-        status = entso_e_refresh(token.c_str(), priceData);
+        free(priceData);
+        free(priceLen);
+        status = entso_e_refresh(token.c_str(), &priceData, &priceLen);
         if (status != 0) {
             Serial.println("Invalid read status");
         } else {

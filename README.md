@@ -27,3 +27,20 @@ void loop()
     }
 }
 ```
+NOTE: Currently the timezone values are hardcoded to finnish timezones. If you need other timezones, edit the
+
+```
+int get_offset(struct tm* time)
+{
+    int offset = 3;
+    if (time->tm_isdst) {
+        offset = 2;
+    }
+    return offset;
+}
+```
+Same applies for the actual market price, this needs to be changed according to Entso-E documentation in entso-e.h:
+
+```
+#define API_DOMAIN "10YFI-1--------U"
+```

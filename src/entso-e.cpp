@@ -41,14 +41,17 @@ void read_cache(double** priceData, int** len)
     *len = (int*)malloc(sizeof(int));
     **len = size;
 }
-
-void get_position(struct tm* startTime, char* str)
+int get_offset(struct tm* time)
 {
     int offset = 3;
-    if (startTime->tm_isdst) {
+    if (time->tm_isdst) {
         offset = 2;
     }
-    unsigned int hour = (startTime->tm_hour + offset) % 24;
+    return offset;
+}
+void get_position(struct tm* startTime, char* str)
+{
+    unsigned int hour = (startTime->tm_hour + get_offset(startTime)) % 24;
     // There's no hour 0 in XML, only 1-24
     if (hour == 0) {
         hour = 24;
@@ -72,11 +75,19 @@ int connect()
         return 0;
     }
 }
+
+time_t adjustForTimezone(time_t utcTime, int timezoneOffset)
+{
+    return utcTime + (timezoneOffset * 3600);
+}
+
 struct tm* get_time()
 {
     time_t rawtime;
-    time(&rawtime);
-    return localtime(&rawtime);
+    rawtime = time(NULL);
+    int offset = get_offset(localtime(&rawtime));
+    time_t localTime = adjustForTimezone(rawtime, offset);
+    return localtime(&localTime);
 }
 void http_get(const char* token, struct tm* startTime)
 {

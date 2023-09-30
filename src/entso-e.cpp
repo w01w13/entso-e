@@ -48,7 +48,11 @@ void get_position(struct tm* startTime, char* str)
     if (startTime->tm_isdst) {
         offset = 2;
     }
-    unsigned int hour = startTime->tm_hour + offset;
+    unsigned int hour = (startTime->tm_hour + offset) % 24;
+    // There's no hour 0 in XML, only 1-24
+    if (hour == 0) {
+        hour = 24;
+    }
     sprintf(str, "<position>%i</position>", hour);
 }
 int connect()

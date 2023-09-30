@@ -1,7 +1,12 @@
 #include "entso-e.h"
+#include <Arduino.h>
+#include <WiFiClientSecure.h>
 #include <ctime>
+#include <stdio.h>
+
 WiFiClientSecure httpsClient; // Declare object of class WiFiClient
-double prices[49];
+double* prices = NULL;
+int size = 0;
 time_t updated;
 int updateStatus;
 void format_timestamp(struct tm* startTime, char* str)
@@ -29,11 +34,12 @@ void get_api(struct tm* startTime, char* str, const char* token)
         token, API_DOCUMENT, API_DOMAIN, API_DOMAIN, startDate, endDate);
     strcpy(str, api);
 }
-void read_cache(double* priceData)
+void read_cache(double** priceData, int** len)
 {
-    for (unsigned int i = 0; i < sizeof(prices) / sizeof(double); i++) {
-        priceData[i] = prices[i];
-    }
+    *priceData = (double*)malloc(size * sizeof(double));
+    memcpy(*priceData, prices, size * sizeof(double));
+    *len = (int*)malloc(sizeof(int));
+    **len = size;
 }
 
 void get_position(struct tm* startTime, char* str)
@@ -81,13 +87,12 @@ void rotateCachedPrices(bool shouldUpdate)
 {
     // Only rotate cached prices if necessary (every hour in case the refresh fails)
     if (shouldUpdate) {
-        int positionsToShift = (sizeof(prices) / sizeof(double)) - 1;
+        int positionsToShift = size - 1;
         // Rotate the prices by one to left
         for (int i = 0; i < positionsToShift; i++) {
             prices[i] = prices[i + 1];
         }
-        // Fill the last value as zero. Eventually all values will be zero if the connection is broken
-        prices[positionsToShift] = 0.0;
+        prices = (double*)realloc(prices, positionsToShift * sizeof(double));
     }
 }
 int read_response(struct tm* startTime)
@@ -95,7 +100,6 @@ int read_response(struct tm* startTime)
     // Check the current hour we need to retrieve
     char position[24];
     get_position(startTime, position);
-    int index = 0;
     int status = 404;
     String line;
     String code = "";
@@ -106,9 +110,14 @@ int read_response(struct tm* startTime)
         // Shoddy parsing to save memory, we just need prices
         if (status == 0 && line.startsWith("<price.amount>") && line.endsWith("</price.amount>")) {
             String price = line.substring(line.indexOf(">") + 1, line.lastIndexOf('<'));
-            prices[index++] = price.toDouble();
+            size++;
+            prices = (double*)realloc(prices, size * sizeof(double));
+            prices[size - 1] = price.toDouble();
         } else if (line.startsWith(position)) {
             status = 0;
+            free(prices);
+            size = 0;
+            prices = NULL;
         } else if (line.startsWith("<code>")) {
             code = line.substring(line.indexOf(">") + 1, line.lastIndexOf('<'));
         } else if (line.startsWith("<text>") && code != "") {
@@ -156,7 +165,7 @@ int get_data(const char* token)
     return status;
 }
 
-int entso_e_refresh(const char* token, double* priceData)
+int entso_e_refresh(const char* token, double** priceData, int** len)
 {
     bool shouldUpdate = difftime(time(0), updated) >= 3600.0;
     if (!updated || shouldUpdate || updateStatus != 0) {
@@ -169,6 +178,6 @@ int entso_e_refresh(const char* token, double* priceData)
     } else {
         Serial.printf("Reading cached values, hourstamp was %f seconds ago\n", difftime(time(0), updated));
     }
-    read_cache(priceData);
+    read_cache(priceData, len);
     return updateStatus;
 }

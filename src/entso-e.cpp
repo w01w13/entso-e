@@ -113,7 +113,7 @@ int read_response(struct tm* startTime)
             size++;
             prices = (double*)realloc(prices, size * sizeof(double));
             prices[size - 1] = price.toDouble();
-        } else if (line.startsWith(position)) {
+        } else if (line.startsWith(position) && status != 0) {
             status = 0;
             free(prices);
             size = 0;

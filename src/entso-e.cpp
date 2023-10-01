@@ -51,7 +51,7 @@ int get_offset(struct tm* time)
 }
 void get_position(struct tm* startTime, char* str)
 {
-    unsigned int hour = (startTime->tm_hour + get_offset(startTime)) % 24;
+    unsigned int hour = startTime->tm_hour % 24;
     // There's no hour 0 in XML, only 1-24
     if (hour == 0) {
         hour = 24;
@@ -76,10 +76,7 @@ int connect()
     }
 }
 
-time_t adjustForTimezone(time_t utcTime, int timezoneOffset)
-{
-    return utcTime + (timezoneOffset * 3600);
-}
+time_t adjustForTimezone(time_t utcTime, int timezoneOffset) { return utcTime + (timezoneOffset * 3600); }
 
 struct tm* get_time()
 {

@@ -78,13 +78,12 @@ int connect()
 
 time_t adjustForTimezone(time_t utcTime, int timezoneOffset) { return utcTime + (timezoneOffset * 3600); }
 
-struct tm* get_time()
+time_t get_time()
 {
     time_t rawtime;
     rawtime = time(NULL);
     int offset = get_offset(localtime(&rawtime));
-    time_t localTime = adjustForTimezone(rawtime, offset);
-    return localtime(&localTime);
+    return adjustForTimezone(rawtime, offset);
 }
 void http_get(const char* token, struct tm* startTime)
 {
@@ -159,11 +158,10 @@ int read_headers()
     }
     return status;
 }
-int get_data(const char* token)
+int get_data(const char* token, struct tm* startTime)
 {
     int status = connect();
     if (status == 0) {
-        struct tm* startTime = get_time();
         // Construct HTTP GET
         Serial.println("Sending request");
         http_get(token, startTime);
@@ -179,16 +177,20 @@ int get_data(const char* token)
 
 int entso_e_refresh(const char* token, double** priceData, int** len)
 {
-    bool shouldUpdate = difftime(time(0), updated) >= 3600.0;
+    time_t now = get_time();
+    double diff = difftime(now, updated);
+    bool shouldUpdate = diff >= 3600.0;
     if (!updated || shouldUpdate || updateStatus != 0) {
-        struct tm* now = get_time();
-        now->tm_min = 0;
-        now->tm_sec = 0;
+        struct tm* startTime = localtime(&now);
+        startTime->tm_min = 0;
+        startTime->tm_sec = 0;
+        Serial.print("Update time: ");
+        Serial.println(asctime(startTime));
         rotateCachedPrices(shouldUpdate);
-        updated = mktime(now);
-        updateStatus = get_data(token);
+        updated = mktime(startTime);
+        updateStatus = get_data(token, startTime);
     } else {
-        Serial.printf("Reading cached values, hourstamp was %f seconds ago\n", difftime(time(0), updated));
+        Serial.printf("Reading cached values, hourstamp was %f seconds ago\n", diff);
     }
     read_cache(priceData, len);
     return updateStatus;

@@ -49,7 +49,7 @@ int get_offset(struct tm* time)
     }
     return offset;
 }
-void get_position(struct tm* startTime, char* str)
+int get_position(struct tm* startTime, char* str)
 {
     unsigned int hour = startTime->tm_hour % 24;
     // There's no hour 0 in XML, only 1-24
@@ -57,6 +57,7 @@ void get_position(struct tm* startTime, char* str)
         hour = 24;
     }
     sprintf(str, "<position>%i</position>", hour);
+    return hour;
 }
 int connect()
 {
@@ -77,13 +78,7 @@ int connect()
 }
 
 time_t adjustForTimezone(time_t utcTime, int timezoneOffset) { return utcTime + (timezoneOffset * 3600); }
-struct tm* get_previous_hour(struct tm* currentTime)
-{
-    time_t rawTime;
-    rawTime = mktime(currentTime);
-    rawTime -= 3600; // Minus 1 hour from current time so we get correct values at 24 hrs
-    return localtime(&rawTime);
-}
+
 time_t get_time()
 {
     time_t rawtime;
@@ -94,7 +89,7 @@ time_t get_time()
 void http_get(const char* token, struct tm* startTime)
 {
     char api[255];
-    get_api(get_previous_hour(startTime), api, token);
+    get_api(startTime, api, token);
     char endpoint[512];
     sprintf(endpoint, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", api, API_HOST);
     Serial.printf("HTTPS:Constructed Request:\n------------------------\n\n%s------------------------\n", endpoint);
@@ -116,7 +111,11 @@ int read_response(struct tm* startTime)
 {
     // Check the current hour we need to retrieve
     char position[24];
-    get_position(startTime, position);
+    // Bypass 24 hour for now, as it's problematic. We can still get the values from cache
+    int hour = get_position(startTime, position);
+    if (hour == 24) {
+        return 0;
+    }
     int status = 404;
     String line;
     String code = "";

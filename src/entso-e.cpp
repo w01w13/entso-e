@@ -77,7 +77,13 @@ int connect()
 }
 
 time_t adjustForTimezone(time_t utcTime, int timezoneOffset) { return utcTime + (timezoneOffset * 3600); }
-
+struct tm* get_previous_hour(struct tm* currentTime)
+{
+    time_t rawTime;
+    rawTime = mktime(currentTime);
+    rawTime -= 3600; // Minus 1 hour from current time so we get correct values at 24 hrs
+    return localtime(&rawTime);
+}
 time_t get_time()
 {
     time_t rawtime;
@@ -88,7 +94,7 @@ time_t get_time()
 void http_get(const char* token, struct tm* startTime)
 {
     char api[255];
-    get_api(startTime, api, token);
+    get_api(get_previous_hour(startTime), api, token);
     char endpoint[512];
     sprintf(endpoint, "GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", api, API_HOST);
     Serial.printf("HTTPS:Constructed Request:\n------------------------\n\n%s------------------------\n", endpoint);
